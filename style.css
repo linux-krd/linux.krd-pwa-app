@@ -47,7 +47,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: clip; }
 body {
   margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.8;
   padding-top: calc(var(--topbar-h) + env(safe-area-inset-top));
@@ -93,16 +93,16 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 :root[data-theme="dark"] .offline-banner { color: #fbbf24; }
 
 /* ---------- Layout ---------- */
-main { max-width: 760px; margin: 0 auto; padding: 0 16px; outline: none; }
+main { max-width: 760px; margin: 0 auto; padding: 0 16px; outline: none; overflow-x: clip; }
 .view { animation: rise .35s ease both; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* ---------- Slider ---------- */
 .slider-wrap { margin: 14px -16px 0; }
-.slider { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 16px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.slider { position: relative; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 16px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .slider::-webkit-scrollbar { display: none; }
 .slide {
-  position: relative; flex: 0 0 88%; aspect-ratio: 16 / 11; scroll-snap-align: center; border-radius: 26px; overflow: hidden;
+  display: block; position: relative; flex: 0 0 88%; aspect-ratio: 16 / 11; scroll-snap-align: center; border-radius: 26px; overflow: hidden;
   background: var(--surface-2); box-shadow: var(--shadow); cursor: pointer; color: #fff;
 }
 .slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s; }
@@ -276,3 +276,13 @@ body.drawer-open .drawer { transform: none; visibility: visible; transition-dela
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition-duration: .01ms !important; } }
+
+/* لۆگۆی کورد لینوکس */
+.brand-logo { height: 34px; width: auto; flex: none; display: block; }
+.drawer-head .brand-logo { height: 30px; }
+:root[data-theme="dark"] .brand-logo { filter: invert(1); }
+
+/* لۆگۆی ماڵپەڕ */
+.logo-img { height: 30px; width: auto; flex: none; display: block; }
+:root[data-theme="dark"] .logo-img { filter: invert(1); }
+.drawer-head .logo-img { height: 32px; }

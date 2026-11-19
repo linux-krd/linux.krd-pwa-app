@@ -23,7 +23,15 @@ const CONFIG = {
   perPage: 10,
   wordsPerMinute: 180,
   sliderCount: 3,    // ژمارەی پڕۆژەکانی ئەسلایدەر
-  sliderCategory: 0, // ئەگەر ID ی بەشی «پڕۆژەکان» لێرە بنووسیت، ئەسلایدەر لەو بەشە دەخوێنرێتەوە
+  projectType: "project",                      // ناوی جۆری نووسراوەی پڕۆژە لە REST API (wp/v2/project)
+  projectsPage: "https://linux.krd/project/", // ئەگەر REST نەبوو، لەم پەڕەیە پڕۆژەکان دەخوێنرێنەوە
+  projectsPageId: 3716,                        // ID ی پەڕەی «پرۆژەکان» لە وردپرێس (بۆ خوێندنەوە بە REST)
+  // دوایین پشتگیری: ئەگەر هیچ یەکێک لە ڕێگاکانی سەرەوە کارینەکرد
+  fallbackProjects: [
+    { title: "ئەپی ماڵپەڕی کورد لینوکس", link: "https://linux.krd/project/%d8%a6%db%95%d9%be%db%8c-%d9%85%d8%a7%da%b5%d9%be%db%95%da%95%db%8c-%da%a9%d9%88%d8%b1%d8%af-%d9%84%db%8c%d9%86%d9%88%da%a9%d8%b3/", img: "https://linux.krd/wp-content/uploads/2026/11/linux-app-krd.jpg" },
+    { title: "میوزیک پلەیەر (ئەندرۆید و ئایفۆن)", link: "https://linux.krd/project/%d9%85%db%8c%d9%88%d8%b2%db%8c%da%a9-%d9%be%d9%84%db%95%db%8c%db%95%d8%b1-%d8%a6%db%95%d9%86%d8%af%d8%b1%db%86%db%8c%d8%af-%d9%88-%d8%a6%d8%a7%db%8c%d9%81%db%86%d9%86/", img: "https://linux.krd/wp-content/uploads/2026/11/pwa-music-player.jpg" },
+    { title: "سیستەمی بەڕێوەبردنی کافە", link: "https://linux.krd/project/%d8%b3%db%8c%d8%b3%d8%aa%db%95%d9%85%db%8c-%d8%a8%db%95%da%95%db%8e%d9%88%db%95%d8%a8%d8%b1%d8%af%d9%86%db%8c-%da%a9%d8%a7%d9%81%db%95/", img: "https://linux.krd/wp-content/uploads/2026/11/coffe_cms.jpg" },
+  ],
 };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -161,7 +169,6 @@ async function viewHome() {
     <div class="slider-wrap"><div class="slider" id="slider"><div class="slide sk"></div><div class="slide sk"></div></div><div class="dots" id="dots"></div></div>
     <div class="sec-head"><h2>نوێترین بابەتەکانی هەموو بەشەکان</h2><button class="link" data-more="home">زیاتر</button></div>
     <div class="rows" id="list">${skRows()}</div><div id="moreWrap"></div></div>`;
-  loadSlider();
   const paint = () => paintRows(home, $("#list"), $("#moreWrap"), "home");
   if (home.posts.length) paint();
   else {
@@ -171,52 +178,115 @@ async function viewHome() {
     paint();
   }
   updateUpdated(home.posts);
+  loadSlider(); // دوای لیستی بابەتەکان، تا بارکردنی بابەتەکان هەرگیز دواناکەوێت
+}
+/* ---- ئەسلایدەر: پڕۆژەکان لە https://linux.krd/project/ ---- */
+function parseProjectsHTML(html, want) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const base = CONFIG.projectsPage, archive = base.replace(/\/$/, "");
+  const map = new Map();
+  doc.querySelectorAll('a[href*="/project/"]').forEach((a) => {
+    let href; try { href = new URL(a.getAttribute("href"), base).href; } catch { return; }
+    if (href.replace(/\/$/, "") === archive || href.includes("#")) return;
+    const box = a.closest("article,li,.post,[class*=card],[class*=item]") || a.parentElement || a;
+    const img = a.querySelector("img") || box.querySelector("img");
+    let src = img ? img.getAttribute("data-src") || img.getAttribute("data-lazy-src") || img.getAttribute("src") || "" : "";
+    if (src) { try { src = new URL(src, base).href; } catch { src = ""; } }
+    const title = (box.querySelector("h1,h2,h3,h4")?.textContent || a.getAttribute("title") || a.textContent || img?.getAttribute("alt") || "").replace(/\s+/g, " ").trim();
+    const e = map.get(href) || { id: 0, link: href, title: "", img: "", thumb: "", date: "", cat: "پڕۆژە", external: true };
+    if (!e.img && src) e.img = e.thumb = src;
+    if (!e.title && title) e.title = title;
+    map.set(href, e);
+  });
+  return [...map.values()].filter((p) => p.title).slice(0, want);
+}
+/* پەڕەی پڕۆژەکان: هەر پڕۆژەیەک سەردێڕێکی بەستەردار + وێنەیەکی هەیە */
+function parseProjectsContent(html, want) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const base = CONFIG.projectsPage;
+  const isHead = (n) => /^H[1-5]$/.test(n.tagName);
+  const hasLink = (n) => n.querySelector('a[href*="/project/"]');
+  const heads = [...doc.body.querySelectorAll("h1,h2,h3,h4,h5")].filter(hasLink);
+  const out = [];
+  for (const h of heads) {
+    let href; try { href = new URL(hasLink(h).getAttribute("href"), base).href; } catch { continue; }
+    // لە نزیکترین بلۆکدا بگەڕێ کە تەنها هی ئەم پڕۆژەیە بێت
+    let box = h;
+    while (box.parentElement && box.parentElement !== doc.body) {
+      const up = box.parentElement;
+      if ([...up.querySelectorAll("h1,h2,h3,h4,h5")].filter(hasLink).length > 1) break;
+      box = up;
+    }
+    let img = box.querySelector("img");
+    for (let n = h.nextElementSibling; !img && n && !(isHead(n) && hasLink(n)); n = n.nextElementSibling) img = n.matches("img") ? n : n.querySelector("img");
+    for (let n = h.previousElementSibling; !img && n && !(isHead(n) && hasLink(n)); n = n.previousElementSibling) img = n.matches("img") ? n : n.querySelector("img");
+    let src = img ? img.getAttribute("data-src") || img.getAttribute("data-lazy-src") || img.getAttribute("src") || "" : "";
+    try { if (src) src = new URL(src, base).href; } catch { src = ""; }
+    const title = h.textContent.replace(/\s+/g, " ").trim();
+    if (title) out.push({ id: 0, link: href, title, img: src, thumb: src, date: "", cat: "پڕۆژە", external: true });
+  }
+  return out.length ? out.slice(0, want) : parseProjectsHTML(html, want);
+}
+async function fetchProjects(want) {
+  try { // ١) REST API ی وردپرێس (ئەگەر «پڕۆژە» جۆری نووسراوەی تایبەت بێت)
+    const { data } = await wp(`${CONFIG.projectType}?per_page=${want}&_embed=wp:featuredmedia`);
+    if (Array.isArray(data) && data.length) return data.map((p) => ({ ...normalize(p), rest: CONFIG.projectType, cat: "پڕۆژە", catId: 0 }));
+  } catch {}
+  try { // ٢) ناوەڕۆکی پەڕەی پڕۆژەکان بە REST (بێ کێشەی CORS)
+    const { data } = await wp(`pages/${CONFIG.projectsPageId}?_fields=content`);
+    const items = parseProjectsContent(data?.content?.rendered || "", want);
+    if (items.length) return items;
+  } catch {}
+  try { // ٣) خوێندنەوەی ڕاستەوخۆی پەڕەی HTML (تەنها ئەگەر ئەپ لەسەر هەمان دۆمەین بێت)
+    const res = await fetch(CONFIG.projectsPage);
+    if (res.ok) { const items = parseProjectsHTML(await res.text(), want); if (items.length) return items; }
+  } catch {}
+  // ٤) لیستی ناوخۆیی
+  return CONFIG.fallbackProjects.slice(0, want).map((p) => ({ id: 0, thumb: p.img, date: "", cat: "پڕۆژە", external: true, ...p }));
+}
+function slideHTML(p) {
+  const inner = `${p.img ? `<img src="${esc(p.img)}" alt="" decoding="async">` : '<div class="ph">$_</div>'}<div class="shade"></div>
+    <div class="cap">${catTag(p)}<h2>${esc(p.title)}</h2>${p.date ? `<div class="meta">${I.clock}<span>${ago(p.date)}</span></div>` : ""}</div>`;
+  return p.external
+    ? `<a class="slide" href="${esc(p.link)}" target="_blank" rel="noopener">${inner}</a>`
+    : `<div class="slide" role="button" tabindex="0" data-open="${p.id}" data-rest="${esc(p.rest || "")}">${inner}</div>`;
 }
 async function loadSlider() {
   const el = $("#slider"); if (!el) return;
-  const want = CONFIG.sliderCount;
-  const base = { per_page: want, _embed: EMBED };
-  if (CONFIG.sliderCategory) base.categories = CONFIG.sliderCategory;
-  let items = [];
-  try {
-    const map = new Map();
-    if (!CONFIG.sliderCategory) {
-      try { (await wp("posts?" + new URLSearchParams({ ...base, sticky: "true" }))).data.forEach((p) => map.set(p.id, p)); } catch {}
-    }
-    if (map.size < want) (await wp("posts?" + new URLSearchParams(base))).data.forEach((p) => { if (map.size < want) map.set(p.id, p); });
-    items = [...map.values()].map(normalize);
-    items.forEach((p) => postCache.set(p.id, p));
-    store.set("slider", items.map(({ content, ...r }) => r));
-  } catch { items = store.get("slider", []); }
-  if (!$("#slider")) return;
-  const dots = $("#dots");
-  if (!items.length) { el.innerHTML = ""; dots.innerHTML = ""; return; }
-  el.innerHTML = items.map((p) => `<div class="slide" role="button" tabindex="0" data-open="${p.id}">
-      ${p.img ? `<img src="${esc(p.img)}" alt="">` : '<div class="ph">$_</div>'}<div class="shade"></div>
-      <div class="cap">${catTag(p)}<h2>${esc(p.title)}</h2><div class="meta">${I.clock}<span>${ago(p.date)}</span></div></div></div>`).join("");
-  dots.innerHTML = items.length > 1 ? items.map((_, i) => `<button data-dot="${i}" aria-label="${i + 1}"></button>`).join("") : "";
-  startSlider();
+  let items = await fetchProjects(CONFIG.sliderCount);
+  if (items) {
+    items.forEach((p) => { if (p.id) postCache.set(p.id, p); });
+    store.set("slider2", items.map(({ content, ...r }) => r));
+  } else items = store.get("slider2", []);
+  if ($("#slider") !== el) return; // لە ماوەی بارکردن پەڕە گۆڕدرا
+  if (!items.length) { el.closest(".slider-wrap")?.remove(); return; }
+  el.innerHTML = items.map(slideHTML).join("");
+  $("#dots").innerHTML = items.length > 1 ? items.map((_, i) => `<button data-dot="${i}" aria-label="${i + 1}"></button>`).join("") : "";
+  startSlider(el);
 }
-function startSlider() {
-  const el = $("#slider"); if (!el) return;
-  const slides = [...el.children], dots = [...$("#dots").children];
+const goToSlide = (el, slide) => {
+  const a = el.getBoundingClientRect(), b = slide.getBoundingClientRect();
+  el.scrollBy({ left: b.left + b.width / 2 - (a.left + a.width / 2), behavior: "smooth" });
+};
+function startSlider(el) {
+  const slides = [...el.children], dotsEl = $("#dots"), dots = [...dotsEl.children];
   let cur = 0;
   dots[0]?.classList.add("on");
   if (slides.length < 2) return;
   const io = new IntersectionObserver((es) => es.forEach((e) => {
-    if (e.isIntersecting) { cur = slides.indexOf(e.target); dots.forEach((d, j) => d.classList.toggle("on", j === cur)); }
+    if (e.isIntersecting && e.intersectionRatio >= 0.6) { cur = slides.indexOf(e.target); dots.forEach((d, j) => d.classList.toggle("on", j === cur)); }
   }), { root: el, threshold: 0.6 });
   slides.forEach((s) => io.observe(s));
   let resume;
   const pause = () => { sliderPaused = true; clearTimeout(resume); resume = setTimeout(() => (sliderPaused = false), 6000); };
   el.addEventListener("pointerdown", pause); el.addEventListener("wheel", pause, { passive: true });
-  $("#dots").addEventListener("click", (e) => { const b = e.target.closest("[data-dot]"); if (b) { pause(); slides[+b.dataset.dot].scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }); } });
+  dotsEl.addEventListener("click", (e) => { const b = e.target.closest("[data-dot]"); if (b) { pause(); goToSlide(el, slides[+b.dataset.dot]); } });
   clearInterval(sliderTimer);
   sliderTimer = setInterval(() => {
     if (!document.body.contains(el)) return clearInterval(sliderTimer);
     if (sliderPaused || document.hidden || document.body.classList.contains("lock")) return;
     cur = (cur + 1) % slides.length;
-    slides[cur].scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    goToSlide(el, slides[cur]); // تەنها ئەسلایدەر دەجوڵێت، پەڕە نا
   }, 5000);
 }
 function updateUpdated(posts) {
@@ -300,7 +370,7 @@ async function renderPost(entry, body, token) {
   let p = postCache.get(entry.id);
   if (!p?.content && saved[entry.id]?.content) p = saved[entry.id];
   if (!p?.content) {
-    try { const { data } = await wp(`posts/${entry.id}?_embed=${EMBED}`); p = normalize(data); postCache.set(p.id, p); }
+    try { const { data } = await wp(`${entry.rest || "posts"}/${entry.id}?_embed=${EMBED}`); p = normalize(data); postCache.set(p.id, p); }
     catch {
       if (token !== renderToken) return;
       body.innerHTML = '<div class="empty-state"><div class="big">404</div><p>نەتوانرا ئەم بابەتە بکرێتەوە.<br>ئینتەرنێتەکەت بپشکنە.</p></div>'; return;
@@ -392,7 +462,7 @@ document.addEventListener("click", async (e) => {
     document.querySelectorAll(`[data-bm="${id}"]`).forEach((b) => b.classList.toggle("on", !!saved[id]));
     if (location.hash.startsWith("#/saved") && !sheetStack.length) viewSaved();
   } else if (d.open) {
-    pushSheet({ type: "post", id: +d.open });
+    pushSheet({ type: "post", id: +d.open, rest: d.rest || "" });
   } else if (d.catopen) {
     closeDrawer(); pushSheet({ type: "cat", id: +d.catopen, name: d.name, count: d.count });
   } else if (d.menu !== undefined) { openDrawer();
