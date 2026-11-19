@@ -1,0 +1,122 @@
+<!doctype html>
+<!-- Linux.krd PWA — Copyright (C) 2026 Linux.krd — GPL-3.0-or-later, see LICENSE -->
+<html lang="ckb" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>لینوکس بە کوردی</title>
+  <meta name="description" content="بابەتە کوردییەکانی لینوکس — ئەپی لینوکس بە کوردی">
+  <meta name="theme-color" content="#eef2f7" id="themeColor">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="لینوکس کوردی">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- هێدەر: مێنیوی هەمبەرگەری لای ڕاست، بەرواری نوێکردنەوە لای چەپ -->
+  <header class="topbar">
+    <button class="icon-btn" id="menuBtn" aria-label="مێنیو" data-menu>
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+    </button>
+    <a class="brand" href="#/">
+      <span class="logo"><span class="prompt">$</span><span class="cursor">_</span></span>
+      <span class="brand-text">لینوکس بە کوردی</span>
+    </a>
+    <div class="updated" id="updated" hidden title="دوایین نوێکردنەوە">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <div><small>نوێکرایەوە</small><b id="updatedText"></b></div>
+    </div>
+  </header>
+
+  <div class="offline-banner" id="offlineBanner" hidden>ئینتەرنێت نییە — ئەو بابەتانەی پێشتر کراونەتەوە نیشان دەدرێن</div>
+
+  <main id="app" tabindex="-1"></main>
+
+  <!-- گرادیەنتی ئایکۆنی چالاک -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs><linearGradient id="dockGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:var(--accent-2)"/>
+    </linearGradient></defs>
+  </svg>
+
+  <!-- مێنیوی خوارەوە: شووشەیی و شەمەندەفەری -->
+  <nav class="dock" aria-label="ناوەندی خوارەوە">
+    <div class="pill">
+      <a href="#/" data-tab="home" aria-label="سەرەکی">
+        <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z"/></svg>
+      </a>
+      <button data-menu aria-label="بەشەکان">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+      </button>
+      <a href="#/saved" data-tab="saved" aria-label="پاشەکەوت">
+        <svg viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z"/></svg>
+      </a>
+    </div>
+    <a class="orb" href="#/search" data-tab="search" aria-label="گەڕان">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    </a>
+  </nav>
+
+  <!-- مێنیوی لای ڕاست: هەموو بەشەکان -->
+  <div class="scrim" id="scrim" data-closedrawer></div>
+  <aside class="drawer" id="drawer" aria-label="مێنیو">
+    <div class="drawer-head">
+      <span class="logo"><span class="prompt">$</span><span class="cursor">_</span></span>
+      <strong>لینوکس بە کوردی</strong>
+      <button class="icon-btn" data-closedrawer aria-label="داخستن">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-scroll">
+      <a class="dlink" href="#/" data-closedrawer>
+        <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z"/></svg>نوێترین بابەتەکان</a>
+      <a class="dlink" href="#/saved" data-closedrawer>
+        <svg viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z"/></svg>پاشەکەوتکراوەکان</a>
+      <div class="drawer-sec">هەموو بەشەکان</div>
+      <nav id="drawerCats" class="dcats"></nav>
+    </div>
+    <div class="drawer-foot">
+      <button class="dbtn" id="themeBtn">
+        <svg viewBox="0 0 24 24" id="themeIcon"><path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z"/></svg>
+        <span>دۆخی تاریک / ڕووناک</span>
+      </button>
+      <button class="dbtn" id="installBtn" hidden>
+        <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+        <span>دامەزراندنی ئەپ</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- پەنجەرەی خوارەوە: مەتن یان بابەتەکانی بەش -->
+  <div class="sheet-wrap" id="sheetWrap">
+    <div class="sheet-scrim" id="sheetScrim" data-sheetclose></div>
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true">
+      <div class="sheet-head" id="sheetHead">
+        <div class="grab"></div>
+        <div class="sheet-bar">
+          <button class="icon-btn" id="sheetBack" data-sheetback aria-label="گەڕانەوە" hidden>
+            <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <div class="sheet-title" id="sheetTitle"></div>
+          <button class="icon-btn" data-sheetclose aria-label="داخستن">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="sheet-progress"><i id="sheetProg"></i></div>
+      </div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
